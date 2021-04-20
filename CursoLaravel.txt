@@ -1,0 +1,254 @@
+Proyecto con Laravel Tienda de zapatos
+Curso de Laravel: https://www.youtube.com/watch?v=j53_H693-2A&list=PLR90MiSHEAh1y1TNl7pcViI5wwklxryqK&index=2
+Poner en el Path del ordenador la ruta de wampserver/php y la de composer para que funciona desde cualquier ruta
+Hemos instalado composer: composer -v para ver la version
+Instalamos Laravel: composer global require laravel/installer
+Iniciar el proyecto: laravel new nombreProyecto que en este caso le ponemos bloc
+Nos vamos a la carpeta del nombreProyecto y escribir:  php artisan serve
+Y se iniciara el server. Si vamos al localhost:8000 vemos la pagina de laravel
+Si queremos ver toda la lista de comandos de Laravel escribir en la consola: php artisan list
+
+
+
+Carpeta Routes en el archivo web.php es donde registramos la ruta de las vistas
+Carpeta Views vamos añadiendo nuevas vistas, el nombre que le pondremos tiene
+que llevar .blade por ejemplo: home.blade.php
+Si el fichero de la vista lo ponemos dentro de una carpeta, para llegar a su ruta le pondremos
+nombreCarpeta.nombreVista, en el fichero de web.php de la carpeta routes, ej: home.home
+Esto mismo se puede hacer de otra manera, seria crear un controller:
+Para crear un controller desde consola: php artisan make:controller HomeController (seria el nombre del controller)
+Vamos al fichero HomeController.php que esta en app/Http/Controllers y entramos en él, y creamos una funcion:
+public function index(){
+        return view('home.home'); //esta funcion es la que nos devuelve la vista de home.blade.php que esta en carpeta home
+    }
+Entonces iremos a la carpeta routes el fichero web.php llamaremos a esa funcion de ese controller que hemos creado:
+acordarnos de que hay que importar esta clase, al principio del fichero:
+use App\Http\Controllers\HomeController;
+Route::get('/home', [HomeController::class, 'index']);
+Para cear las tablas de la base de datos, se guardan en carpeta database/migrations, podemos ver
+unas creadas por defecto de Laravel, vamos a crear las propias:
+
+-Tabla Producto: Product
+	Nombre
+	Precio
+	Descripcion
+	Cantidad en stock
+	Estado
+	Garantia
+	Cart_id
+-Tabla Image: imagenes
+	Nombre
+	Url
+	Product_id
+-Tabla Usuario:  Users
+	Nombre
+	Email
+	email_verified_at
+	password
+	phone
+	address
+	cart_id
+-Tabla Carro de Compras:  Cart
+	Productos
+	Usuario
+	Precio Total
+-Tabla Pedido: Request
+	Carro de compras
+	Tiempo de entrega
+-Tabla user_cart: usuario_carro
+	user_id
+	cart_id
+	como primary key ponemos a los dos campos: user_id, cart_id
+	
+Vamos a terminal y vamos a crear la tabla de productos:
+php artisan make:migration create_products_table
+Vamos a la carpeta migrations y vemos que se ha creado el fichero 2021_03_23_214607_create_products_table.php
+Por defecto esta la funcion de up() que es la que creara la tabla y la funcion down() la que borra la tabla y nos
+ha generado tambien el campo id y timestamps
+Ahora iremos creando los campos de la tabla que nos faltan y creando las otras tablas que nos faltan
+Despues iremos a phpAdmin para crear la base de datos con el mismo nombre, miramos en la carpeta vendor el
+fichero .env , miramos en la configuracion:
+DB_DATABASE= shoes_store  --->este es el nombre de la base de datos de phpAdmin
+Ahora debemos migrar las tablas del proyecto a phpAdmin base de datos shoes_store
+Vamos a la terminal y escribir: php artisan migrate   --->Lo que ha habido un error, para solucionarlo
+tenemos que ir al fichero App/Providers/AppServiceProvider.php 
+importar la clase Schema y incluir en la funcion boot():
+
+use Illuminate\Support\Facades\Schema;
+
+public function boot()
+{
+    Schema::defaultStringLength(191);
+}
+El unico problema es que: 
+Tenga cuidado con esta solución. Si indexa campos de correo electrónico, por ejemplo, 
+los correos electrónicos almacenados solo pueden tener una longitud máxima 
+de 191 caracteres. Esto es menos que los estados oficiales de RFC
+Ahora ya tenemos en phpAdmin las tablas creadas
+Si queremos borrar la ultima migracion de las tablas, escribir en la terminal: 
+php artisan migrate:rollback
+Para modificar una tabla, añadir un nuevo campo en la tabla products, en la terminal: 
+   php artisan make:migration add_avatar_to_products_table    ->el nombre de avatar es la nueva columna
+Nos vamos al fichero nuevo creado que esta en la carpeta migrations y en la funcion up() es donde
+vamos a incluir la nueva columna:  $table->string('avatar')->nullable(); //le ponemos valor null, si ya tenemos
+valores en esa tabla, para que no nos de error, si no hay ningun registro no es necesario
+Y despues en la funcion down(), se utilizara para borrar esa nueva columna, poner:
+   $table->dropColumn('avatar');    ->se borrara la columna de nombre avatar
+Y ahora ya podemos hacer la migracion para ver la nueva columna: php artisan migrate
+Y lo que pasa es que se añadira al final. Si queremos que se añada en un sitio en concreto, por ejemplo
+despues de cierta columna, tenemos que poner en la funcion up() :  $table->string('avatar')->nullable()->after('nombreColumna');
+Si queremos modificar una columna tenemos que instalar un componente, en terminal:
+ 	composer require doctrine/dbal
+Despues en terminal crear una migracion:
+	php artisan make:migration cambiar_propiedades_to_users_table
+En la funcion up() añadimos: 
+	$table->string('name', 150)->nullable()->change();//en el campo name de la tabla users le cambiamos
+la longitud en 150 caracteres y valor null
+Y en la funcion down() añadir:  
+	$table->string('name', 255)->nullable(false)->change();//volver a poner la propiedad longitud a 255 caracteres y no null
+Y ahora ya podemos migrar:
+	php artisan migrate y veremos que esa columna ya tiene los cambios 
+
+Modelos: representacion de las acciones sobre las tablas de la base de datos, insert, updates, deletes, query
+crearemos por cada tabla su modelo.
+Para crear modelos desde terminal:
+php artisan make:model nombreModelo (en este caso sera Product)
+Y asi con todas las tablas de la base de datos, despues vamos a la carpeta de app/models y alli estan los
+modelos creado, al entrar vemos que estan vacios, entonces vamos añadiendo codigo.
+
+El tema de las relaciones entre las tablas:
+--relacion uno a uno: un request(pedido) tiene un unico cart(carro de compra)
+Iremos al modelo de Request y añadiremos una funcion para que retorne su Cart
+y hay que hacer la inversa una funcion en el modelo de Cart para que retorne su Request
+--relacion uno a muchos: un Product tiene muchas Images:
+Ir a modelo Product y poner funcion para que retorne todas sus Image
+y hacemos la inversa, la funcion en modelo Image que retorna su unico Product
+Vamos haciendo las otras relaciones:
+-relacion uno a uno: Un Cart(carro) pertenece a un User(usuario) y despues hacemos la inversa
+-relacion muchos a muchos: muchos Products pueden estar en muchos Carts(carros de compra) y viceversa
+
+Controladores: para crear un controlador ir a la terminal:
+php artisan make:controller nombreControlador --resource   en este caso el nombre= StoreController
+Vamos a la carpeta app/Http/Controllers/StoreController.php
+Vemos que se han creado unas funciones para poder hacer las operaciones CRUD 
+de la base de datos
+Ahora vamos a descargar la libreria Laravel/ui:se utiliza para la autenticacion, con bootstrap, etc:
+composer require laravel/ui
+Lo que pasa es que a habido un error de memoria, ir al fichero composer.bat y poner 
+en la ultima linea: php -d memory_limit=-1 "%~dp0composer.phar" %*
+Entonces volvemos a escribir: composer require laravel/ui y entonces ya se instalara
+Despues cargamos otras dependencias: npm install
+Despues cargar otras dependencias: npm run watch
+Despues otras librerias: php artisan ui bootstrap
+Despues hacer: npm install
+Despues : npm run watch
+
+Vamos a crear una carpeta llamada store dentro de resources/views y en esta carpeta
+los ficheros index.blade.php, create.blade.php, edit.blade.php, update.blade.php
+Entonces vamos al controlador StoreController.php situado en app/Http/Controllers
+Y aqui es donde iremos llamando a las vistas antes creadas, vamos a la funcion index y ponemos:
+return view('store.index'); se pone asi ya que es la cerpeta store/y dentro la vista index
+Y vamos haciendo lo mismo con todas las demas views
+Despues hay que poner las rutas: carpeta routes/web.php y escribir:
+Route::get('/store',[StoreController::class, 'index']); de esta manera le digo que la ruta es la
+carpeta store y despues el nombre del controlador y el index es el nombre de la view, que siempre
+la view primera sera de nombre index, y despues ir haciendo lo mismo con las demas views, pero
+hay una manera que tambien se puede hacer:
+Route::resource('store',StoreController::class);//si lo hacemos asi se crean todas las rutas
+Si en terminal escribimos: php artisan route:list
+Veremos todas las rutas de las views
+
+Vamos a la carpeta views y creamos la carpeta layouts, dentro un fichero llamado app.blade.php, en este fichero
+se vera la vista principal, el layout se iran viendo las diferentes vistas, cuando naveguemos por la pagina web
+
+Crearemos la vista del header, el cual pondremos el nav, creamos la carpeta partiels dentro de las views, dentro
+de partiels el fichero header.blade.php
+
+
+Utilizacion de blade: podemos utilizar una plantilla para no tener que repetir partes de las vistas en todas las paginas
+de la web que estamos creando, por ejemplo el Header, el Nav, etc seran muchas veces lo mismo en todas las 
+paginas. El nombre de estas plantillas tienen que tener el siguiente formato blade ej:
+index.blade.php
+
+******BASE DE DATOS**********
+Para las credenciales de nuestra base de datos para que esten seguras lo haremos en el fichero .env y por que lo hacemos en
+este fichero? Porque al subir nuestro proyecto al git el fichero .env no esta visible para los demas usuarios, esta protegido. En este 
+fichero automaticamente Laravel crea las variables para la base de datos, podemos cambiarlas si es necesario.
+Si queremos borrar todas las tablas: php artisan migrate:reset
+
+
+****TINKER**********
+Tinker le permite interactuar con toda su aplicación Laravel en la línea de comando, 
+incluidos sus modelos, trabajos, eventos y más de Eloquent. Para ingresar al entorno de Tinker, 
+ejecute el tinkercomando Artisan:
+	php artisan tinker
+Ya estaremos en la consola de Tinker, para salir escribir exit
+Sin tener que escribir ninguna sentencia SQL podemos insertar un nuevo registro a la base de datos, crearemos
+un objeto utilizando los modelos que tenemos, (ejemplo el modelo Curso), haremos:(antes claro debemos crear
+un modelo en la consola fuera de Tinker, consola normal: php artisan make:model Curso)
+En terminal Tinker:
+>>> use App\Models\Curso;//le pedimos el modelo que vamos a utilizar
+>>> $curso = new Curso;//instanciar Modelo Curso
+>>> $curso->name = 'Laravel';//le damos valor a la propiedad name
+>>> $curso->description = "El mejor frameworke de PHP";//valor a otra propiedad
+>>> $curso; //para mostrar el objeto creado
+>>> $curso->save(); //para insertar el nuevo registro en la base de datos
+A traves de la consola Tinker podemos insertar registros en la base de datos creando un objeto de esa tabla
+
+Para mostrar los registros de la tabla Curso en tinker:
+>>>use App\Models\Curso;
+>>>$cursos=$Curso::all();  //funcion para mostrar todos los registros
+Ahora mostrar haciendo un where, mostrar solo cuando categoria = Diseño web
+>>> $cursos=Curso::where('categoria','Diseño web')->get();  //nos muestra solo los que tienen categoria=Diseño web de 
+//manera ascendente 1,2,3,......
+En el metodo get() nos devuelve los registros en un ARRAY
+Para mostrar de manera por orden descendente por el id de la tabla Cursos:
+>>>$cursos=Curso::where('categoria','Diseño web')->orderBy('id','desc')->get();
+Para mostrar de manera por orden ascendente por el name de la tabla Cursos:
+>>>$cursos=Curso::where('categoria','Diseño web')->orderBy('name','asc')->get();
+Para mostrar lo mismo pero solo el primer registro de la colecion:
+>>>$cursos=Curso::where('categoria','Diseño web')->orderBy('name','asc')->first();//este metodo nos devuelve como un OBJETO
+Mostrar solo los campos name y descripcion por orden ascendente por el name:
+>>>$cursos=Curso::select('name','descripcion')->orderBy('name','asc')->get();
+Mostrar los campos: name, descripcion y categoria cuando categoria=Diseño web en orden
+ascendente por el name:
+>>> $cursos = Curso::select('name','descripcion','categoria')->where('categoria','Diseño web')->orderBy('name','asc')->get();
+Lo mismo pero que el name se muestro como title:
+>>> $cursos = Curso::select('name as title','descripcion','categoria')->where('categoria','Diseño web')->orderBy('name','asc')->get();
+Lo mismo pero muestrame los 5 primeros registros:
+>>> $cursos = Curso::select('name as title','descripcion','categoria')->where('categoria','Diseño web')->orderBy('name','asc')->take(5)->get();
+Mostrar por el id = 5:
+>>> $cursos = Curso::where('id',5)->get();
+Mostrar lo mismo cuando el id=5, pero con la funcion find():
+>>> $cursos = Curso::find(5);
+Mostrar registro cuando name = Vel et iste adipisci sed eius.
+>>> $cursos = Curso::where('name','Vel et iste adipisci sed eius.')->get();
+Mostrar todos los cursos cuyo id > 45
+>>> $cursos = Curso::where('id','>',45)->get();
+Mostrar todos los cursos cuyo id < 10
+>>> $cursos = Curso::where('id','<',10)->get();  //tambien se puede utilizar <=,>=,<>
+Mostrar los registros cuya palabra voluptatem se encuentre en el campo name:
+>>> $cursos = Curso::where('name','like','% voluptatem %')->get();
+
+
+Vamos a utilizar los Seeders para insertar registros en la base de datos
+Vamos a la carpeta database/seeders/DatabaseSeeder.php , aqui creamos nuestro objeto con sus propiedades y 
+valores para la tabla de Curso, ahora vamos a hacer: php artisan fresh, para que se borren las tablas y se vuelvan 
+a crear de nuevo sin ningun registro, y ahora escribir: 
+	php artisan db:seed   ->esto lo que hace es insertar en la tabla de cursos, lo que hemos escrito en 
+database/seeders/DatabaseSeeder.php, podemos crear los objetos que necesitemos para ir insertando registros. Pero
+hay otra manera mas facil, es creando los factory. Escribir:
+	php artisan make:factory CursoFactory  ->creamos el Factory para la tabla cursos,esta en la 
+carpeta database/factories/CursoFactory.php, en este fichero vamos a la funcion definition() y dentro de return [ ] pondremos
+los campos de nuestra tabla y valores que necesitemos rellenar. Y ahora vamos a database/seeders/DatabaseSeeder.php y
+en la function run() añadir:
+	Curso::factory(50)->create(); //esto creara 50 registros nuevos en la tabla de curso, con los
+valores que hemos indicado en database/factories/CursoFactory.php
+Ahora hacemos:
+	php artisan migrate:fresh --seed  //primero elimina todas las tablas, despues las creara y despues insertar
+registros en la tabla cursos
+
+
+
+
+
